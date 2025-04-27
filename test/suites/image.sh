@@ -208,7 +208,7 @@ test_image_split() {
   incus delete c
   incus image export splitimage splitimage.file
   incus image delete splitimage
-  incus image import splitimage.file --alias splitimage
+  incus image import splitimage.file.tar.gz --alias splitimage
   incus init splitimage c
   incus delete c
   incus image delete splitimage

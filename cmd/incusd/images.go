@@ -351,7 +351,12 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 		tarReader, tarWriter := io.Pipe()
 		metaProgressWriter.WriteCloser = tarWriter
 		metaWriter = metaProgressWriter
-		compressWriter := io.MultiWriter(metaFile, sha256)
+		var compressWriter io.Writer = nil
+		if itype != "split" {
+			compressWriter = io.MultiWriter(metaFile, sha256)
+		} else {
+			compressWriter = io.MultiWriter(metaFile)
+		}
 		
 		go func() {
 			defer wg.Done()
@@ -364,14 +369,18 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 		}()
 	} else {
 		metaProgressWriter.WriteCloser = metaFile
-		metaWriter = io.MultiWriter(metaProgressWriter, sha256)
+		if itype != "split" {
+			metaWriter = io.MultiWriter(metaProgressWriter, sha256)
+		} else {
+			metaWriter = io.MultiWriter(metaProgressWriter)
+		}
 	}
 	if compress != "none" && c.Info().Type.String() != "virtual-machine" {
 		wg.Add(1)
 		tarReader, tarWriter := io.Pipe()
 		rootfsProgressWriter.WriteCloser = tarWriter
 		rootfsWriter = rootfsProgressWriter
-		compressWriter := io.MultiWriter(rootfsFile, sha256)
+		compressWriter := io.MultiWriter(rootfsFile)
 		
 		go func() {
 			defer wg.Done()
@@ -383,7 +392,7 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 		}()
 	} else {
 		rootfsProgressWriter.WriteCloser = rootfsFile
-		rootfsWriter = io.MultiWriter(rootfsProgressWriter, sha256)
+		rootfsWriter = io.MultiWriter(rootfsProgressWriter)
 	}
 
 	// Tracker instance for the export phase.
@@ -442,6 +451,18 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 			return nil, err
 		}
 		info.Size += rootfsFi.Size()
+
+		metaData, err := os.ReadFile(metaFile.Name())
+		if err != nil {
+			return nil, err
+		}
+		sha256.Write(metaData)
+
+		rootfsData, err := os.ReadFile(rootfsFile.Name())
+		if err != nil {
+			return nil, err
+		}
+		sha256.Write(rootfsData)
 	}
 	info.Fingerprint = fmt.Sprintf("%x", sha256.Sum(nil))
 	info.CreatedAt = time.Now().UTC()
