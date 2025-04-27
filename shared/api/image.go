@@ -57,6 +57,9 @@ type ImagesPost struct {
 	// API extension: image_compression_algorithm
 	CompressionAlgorithm string `json:"compression_algorithm" yaml:"compression_algorithm"`
 
+	// TODO: Add comments
+	Type string `json:"type" yaml:"type"`
+
 	// Aliases to add to the image
 	// Example: [{"name": "foo"}, {"name": "bar"}]
 	//

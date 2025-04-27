@@ -88,7 +88,6 @@ test_image_list_all_aliases() {
     # both aliases are listed if the "aliases" column is included in output
     incus image list -c L | grep -q testimage
     incus image list -c L | grep -q zzz
-
 }
 
 test_image_import_dir() {
@@ -200,4 +199,17 @@ test_image_refresh() {
   incus rm c1
   incus remote rm l2
   kill_incus "${INCUS2_DIR}"
+}
+
+test_image_split() {
+  ensure_import_testimage
+  incus init testimage c
+  incus publish c --alias splitimage
+  incus delete c
+  incus image export splitimage splitimage.file
+  incus image delete splitimage
+  incus image import splitimage.file --alias splitimage
+  incus init splitimage c
+  incus delete c
+  incus image delete splitimage
 }

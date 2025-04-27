@@ -48,7 +48,7 @@ For virtual machines, QEMU 6.0 or higher is required.
 
 When using `virtiofsd`, only the [Rust rewrite](https://gitlab.com/virtio-fs/virtiofsd) of `virtiofsd` is supported.
 
-## Additional libraries (and development headers)
+## Additional libraries (and development$ headers)
 
 Incus uses `cowsql` for its database, to build and set it up, you can
 run `make deps`.
