@@ -445,6 +445,7 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 	}
 
 	info.Size = fi.Size()
+	// Make sure both files are included for size and hash when using split format
 	if imageType == "split" {
 		rootfsFi, err := os.Stat(rootfsFile.Name())
 		if err != nil {
