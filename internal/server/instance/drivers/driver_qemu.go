@@ -6652,7 +6652,8 @@ func (d *qemu) Export(metaWriter io.Writer, rootfsWriter io.Writer, properties m
 		return nil, fmt.Errorf("Failed converting instance to qcow2: %w", err)
 	}
 
-	// Read converted file info and write file to tarball.
+	// Read converted file info and write file to tarball in the case of unified image
+	// For split images, just write as a qcow2 file
 	if rootfsWriter == nil {
 		imgOffset := len(tmpPath) + 1
 		fi, err = os.Lstat(fPath)
