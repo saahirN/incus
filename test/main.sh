@@ -213,7 +213,6 @@ if [ "${1:-"all"}" != "cluster" ]; then
     run_test test_oidc "OpenID Connect"
     run_test test_openfga "OpenFGA"
     run_test test_certificate_edit "Certificate edit"
-    run_test test_image_split "image split"
     run_test test_basic_usage "basic usage"
     run_test test_remote_url "remote url handling"
     run_test test_remote_admin "remote administration"

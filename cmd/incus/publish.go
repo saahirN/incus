@@ -259,10 +259,9 @@ func (c *cmdPublish) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf(i18n.G("Aliases already exists: %s"), strings.Join(names, ", "))
 	}
 
+	req.Type = "unified"
 	if c.flagSplit {
 		req.Type = "split"
-	} else {
-		req.Type = "unified"
 	}
 
 	op, err := s.CreateImage(req, nil)

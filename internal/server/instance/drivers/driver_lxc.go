@@ -5510,7 +5510,6 @@ func (d *lxc) Export(metaWriter io.Writer, rootfsWriter io.Writer, properties ma
 			return nil, err
 		}
 	}
-	
 
 	d.logger.Info("Exported instance", ctxMap)
 	return &meta, nil

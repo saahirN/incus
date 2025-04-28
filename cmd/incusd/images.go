@@ -206,11 +206,11 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 	projectName := request.ProjectParam(r)
 	name := req.Source.Name
 	ctype := req.Source.Type
-	itype := req.Type;
+	imageType := req.Type;
 	if ctype == "" || name == "" {
 		return nil, fmt.Errorf("No source provided")
 	}
-	if itype != "" && itype != "unified" && itype != "split" {
+	if imageType != "" && imageType != "unified" && imageType != "split" {
 		return nil, fmt.Errorf("Invalid image format")
 	}
 
@@ -352,7 +352,7 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 		metaProgressWriter.WriteCloser = tarWriter
 		metaWriter = metaProgressWriter
 		var compressWriter io.Writer = nil
-		if itype != "split" {
+		if imageType != "split" {
 			compressWriter = io.MultiWriter(metaFile, sha256)
 		} else {
 			compressWriter = io.MultiWriter(metaFile)
@@ -369,7 +369,7 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 		}()
 	} else {
 		metaProgressWriter.WriteCloser = metaFile
-		if itype != "split" {
+		if imageType != "split" {
 			metaWriter = io.MultiWriter(metaProgressWriter, sha256)
 		} else {
 			metaWriter = io.MultiWriter(metaProgressWriter)
@@ -408,7 +408,7 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 
 	metaWriter = internalIO.NewQuotaWriter(metaWriter, budget)
 	rootfsWriter = internalIO.NewQuotaWriter(rootfsWriter, budget)
-	if itype != "split" {
+	if imageType != "split" {
 		meta, err = c.Export(metaWriter, nil, req.Properties, req.ExpiresAt, tracker)
 	} else {
 		meta, err = c.Export(metaWriter, rootfsWriter, req.Properties, req.ExpiresAt, tracker)
@@ -445,7 +445,7 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 	}
 
 	info.Size = fi.Size()
-	if itype == "split" {
+	if imageType == "split" {
 		rootfsFi, err := os.Stat(rootfsFile.Name())
 		if err != nil {
 			return nil, err
@@ -487,7 +487,7 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 		return nil, err
 	}
 
-	if(itype == "split") {
+	if(imageType == "split") {
 		rootfsFinalName := internalUtil.VarPath("images", info.Fingerprint + ".rootfs")
 		err = internalUtil.FileMove(rootfsFile.Name(), rootfsFinalName)
 		if err != nil {
@@ -495,7 +495,6 @@ func imgPostInstanceInfo(ctx context.Context, s *state.State, r *http.Request, r
 		}
 	}
 
-	logger.Debugf("Current filename: %s", info.Filename)
 	info.Architecture, _ = osarch.ArchitectureName(c.Architecture())
 	info.Properties = meta.Properties
 

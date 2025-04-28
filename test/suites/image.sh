@@ -88,6 +88,7 @@ test_image_list_all_aliases() {
     # both aliases are listed if the "aliases" column is included in output
     incus image list -c L | grep -q testimage
     incus image list -c L | grep -q zzz
+    
 }
 
 test_image_import_dir() {

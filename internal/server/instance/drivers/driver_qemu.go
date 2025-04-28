@@ -6675,7 +6675,6 @@ func (d *qemu) Export(metaWriter io.Writer, rootfsWriter io.Writer, properties m
 			return nil, err
 		}
 	}
-	
 
 	// Include all the templates.
 	fnam = d.TemplatesPath()
