@@ -5315,6 +5315,7 @@ func (d *lxc) Export(metaWriter io.Writer, rootfsWriter io.Writer, properties ma
 	cDir := d.Path()
 
 	// Path inside the tar image is the pathname starting after cDir.
+	// For the rootfs tarball in a split image, the path inside is the pathname starting after rootfs/
 	metaOffset := len(cDir) + 1
 	rootfsOffset := len(d.RootfsPath())
 
