@@ -947,6 +947,10 @@ func (d *disk) startContainer() (*deviceConfig.RunConfig, error) {
 			options = append(options, d.config["propagation"])
 		}
 
+		if d.config["size"] != "" {
+			options = append(options, "size=" + d.config["size"])
+		}
+
 		// Mount the pool volume and set poolVolSrcPath for createDevice below.
 		if d.config["pool"] != "" {
 			var err error
