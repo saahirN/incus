@@ -120,6 +120,16 @@ func (d *disk) sourceIsCephFs() bool {
 	return strings.HasPrefix(d.config["source"], "cephfs:")
 }
 
+// sourceIsTmpfs returns true if the disks source config setting is a tmpfs
+func (d *disk) sourceIsTmpfs() bool {
+	return strings.HasPrefix(d.config["source"], "tmpfs:")
+}
+
+// sourceIsTmpfs returns true if the disks source config setting is a tmpfs-overlay
+func (d *disk) sourceIsTmpfsOverlay() bool {
+	return strings.HasPrefix(d.config["source"], "tmpfs-overlay")
+}
+
 // sourceIsCeph returns true if the disks source config setting is a Ceph RBD.
 func (d *disk) sourceIsCeph() bool {
 	return strings.HasPrefix(d.config["source"], "ceph:")
@@ -394,7 +404,11 @@ func (d *disk) validateConfig(instConf instance.ConfigReader) error {
 		return fmt.Errorf(`Root disk entry must have a "pool" property set`)
 	}
 
-	if d.config["size"] != "" && d.config["path"] != "/" {
+	if (d.sourceIsTmpfs() || d.sourceIsTmpfsOverlay()) && d.config["pool"] != "" {
+		return fmt.Errorf(`"pool" property should not be set for tmpfs and tmpfs-overlay disks`) 
+	}
+
+	if d.config["size"] != "" && d.config["path"] != "/" && !d.sourceIsTmpfsOverlay() && !d.sourceIsTmpfs() {
 		return fmt.Errorf("Only the root disk may have a size quota")
 	}
 
@@ -430,7 +444,7 @@ func (d *disk) validateConfig(instConf instance.ConfigReader) error {
 		}
 	}
 
-	srcPathIsLocal := d.config["pool"] == "" && d.sourceIsLocalPath(d.config["source"])
+	srcPathIsLocal := d.config["pool"] == "" && d.sourceIsLocalPath(d.config["source"]) && !d.sourceIsTmpfs() && !d.sourceIsTmpfsOverlay()
 	srcPathIsAbs := filepath.IsAbs(d.config["source"])
 
 	if srcPathIsLocal && !srcPathIsAbs {
@@ -675,7 +689,7 @@ func (d *disk) getDevicePath(devName string, devConfig deviceConfig.Device) stri
 
 // validateEnvironmentSourcePath checks the source path property is valid and allowed by project.
 func (d *disk) validateEnvironmentSourcePath() error {
-	srcPathIsLocal := d.config["pool"] == "" && d.sourceIsLocalPath(d.config["source"])
+	srcPathIsLocal := d.config["pool"] == "" && d.sourceIsLocalPath(d.config["source"]) && !d.sourceIsTmpfs() && !d.sourceIsTmpfsOverlay()
 	if !srcPathIsLocal {
 		return nil
 	}
@@ -925,7 +939,7 @@ func (d *disk) startContainer() (*deviceConfig.RunConfig, error) {
 
 		if isRecursive {
 			options = append(options, "rbind")
-		} else {
+		} else if !d.sourceIsTmpfsOverlay()  {
 			options = append(options, "bind")
 		}
 
@@ -969,20 +983,94 @@ func (d *disk) startContainer() (*deviceConfig.RunConfig, error) {
 
 		if isFile {
 			options = append(options, "create=file")
-		} else {
+		} else if !d.sourceIsTmpfsOverlay() {
 			options = append(options, "create=dir")
 		}
 
 		// Ask for the mount to be performed.
-		runConf.Mounts = append(runConf.Mounts, deviceConfig.MountEntryItem{
-			DevName:    d.name,
-			DevPath:    sourceDevPath,
-			TargetPath: relativeDestPath,
-			FSType:     "none",
-			Opts:       options,
-			OwnerShift: ownerShift,
-		})
+		if d.sourceIsTmpfsOverlay() {
+			// Extra mounts are needed in the case of tmpfs-overlay
+			options = append(options, "defaults")
+			runConf.Mounts = append(runConf.Mounts, deviceConfig.MountEntryItem{
+				DevName:    d.name + "Tmpfs",
+				DevPath:    "none",
+				TargetPath: "proc",
+				FSType:     "tmpfs",
+				Opts:       options,
+				OwnerShift: ownerShift,
+			})
 
+			upperOptions := []string{}
+			upperOptions = append(upperOptions, "defaults")
+			upperOptions = append(upperOptions, "create=dir")
+			upperOptions = append(upperOptions, "optional")
+			runConf.Mounts = append(runConf.Mounts, deviceConfig.MountEntryItem{
+				DevName:    d.name + "Upper",
+				DevPath:    "none",
+				TargetPath: "proc/upper",
+				FSType:     "invalid",
+				Opts:       upperOptions,
+				OwnerShift: ownerShift,
+			})
+
+			workOptions := []string{}
+			workOptions = append(workOptions, "defaults")
+			workOptions = append(workOptions, "create=dir")
+			workOptions = append(workOptions, "optional")
+			runConf.Mounts = append(runConf.Mounts, deviceConfig.MountEntryItem{
+				DevName:    d.name + "Work",
+				DevPath:    "none",
+				TargetPath: "proc/work",
+				FSType:     "invalid",
+				Opts:       workOptions,
+				OwnerShift: ownerShift,
+			})
+
+			overlayOptions := []string{}
+			overlayOptions = append(overlayOptions, "userxattr")
+			overlayOptions = append(overlayOptions, "lowerdir=/opt/incus/lib/lxc/rootfs/" + relativeDestPath)
+			overlayOptions = append(overlayOptions, "upperdir=/opt/incus/lib/lxc/rootfs/proc/upper")
+			overlayOptions = append(overlayOptions, "workdir=/opt/incus/lib/lxc/rootfs/proc/work")
+			overlayOptions = append(overlayOptions, "create=dir")
+			runConf.Mounts = append(runConf.Mounts, deviceConfig.MountEntryItem{
+				DevName:    d.name + "Overlay",
+				DevPath:    "none",
+				TargetPath: "sys",
+				FSType:     "overlay",
+				Opts:       overlayOptions,
+				OwnerShift: ownerShift,
+			})
+
+			procMoveOptions := []string{}
+			procMoveOptions = append(procMoveOptions, "move")
+			runConf.Mounts = append(runConf.Mounts, deviceConfig.MountEntryItem{
+				DevName:    d.name + "MoveProc",
+				DevPath:    "proc",
+				TargetPath: relativeDestPath,
+				FSType:     "none",
+				Opts:       procMoveOptions,
+			})
+
+			sysMoveOptions := []string{}
+			sysMoveOptions = append(sysMoveOptions, "move")
+			runConf.Mounts = append(runConf.Mounts, deviceConfig.MountEntryItem{
+				DevName:    d.name + "MoveSys",
+				DevPath:    "sys",
+				TargetPath: relativeDestPath,
+				FSType:     "none",
+				Opts:       sysMoveOptions,
+			})
+		} else {
+			runConf.Mounts = append(runConf.Mounts, deviceConfig.MountEntryItem{
+				DevName:    d.name,
+				DevPath:    sourceDevPath,
+				TargetPath: relativeDestPath,
+				FSType:     "none",
+				Opts:       options,
+				OwnerShift: ownerShift,
+			})
+		}
+		
 		// Unmount host-side mount once instance is started.
 		runConf.PostHooks = append(runConf.PostHooks, d.postStart)
 	}
@@ -1812,6 +1900,10 @@ func (d *disk) createDevice(srcPath string) (func(), string, bool, error) {
 			}
 
 			srcPath = rbdPath
+			isFile = false
+		} else if d.sourceIsTmpfs() || d.sourceIsTmpfsOverlay() { 
+			srcPath = "tmpfs"
+			fsName = "tmpfs"
 			isFile = false
 		} else {
 			fileInfo, err := os.Stat(srcPath)
